@@ -256,6 +256,30 @@ tr:hover td { background: var(--gray-50); }
   </div>
 </div>
 
+<!-- License Activation Modal -->
+<div class="modal-overlay" id="license-modal">
+  <div class="modal" style="max-width: 480px;">
+    <div class="modal-header">
+      <h3>🔑 Enter License Key</h3>
+      <button class="modal-close" onclick="closeLicenseModal()">&times;</button>
+    </div>
+    <div class="modal-body" style="padding: 24px;">
+      <p style="color: var(--gray-500); margin-bottom: 16px; font-size: 14px;">
+        Enter your license key to activate Pro features. The key can only be activated on one device.
+      </p>
+      <div class="form-group">
+        <label>License Key</label>
+        <input type="text" id="license-key-input" placeholder="PPT-XXXX-XXXX-XXXX-XXXX" style="font-family: monospace; text-transform: uppercase;">
+      </div>
+      <div id="license-status" style="margin-bottom: 16px; font-size: 13px;"></div>
+      <button class="btn btn-primary" style="width: 100%; justify-content: center;" onclick="activateLicense()">Activate License</button>
+      <p style="font-size: 12px; color: var(--gray-400); margin-top: 12px; text-align: center;">
+        Don't have a key? <a href="https://gumroad.com/l/payment-plan-tracker" target="_blank" style="color: var(--blue);">Purchase on Gumroad</a>
+      </p>
+    </div>
+  </div>
+</div>
+
 <!-- New Plan Modal -->
 <div class="modal-overlay" id="modal">
   <div class="modal">
@@ -354,6 +378,7 @@ function save() {
 }
 
 function isFreeLimitReached() {
+  if (isProUser()) return false;
   return plans.length >= FREE_LIMIT;
 }
 
@@ -453,7 +478,9 @@ function render() {
 
 function renderPlanLimitBadge() {
   const badge = document.getElementById('plan-limit-badge');
-  if (isFreeLimitReached()) {
+  if (isProUser()) {
+    badge.innerHTML = '<span style="background: var(--blue-light); color: var(--blue); padding: 2px 8px; border-radius: 12px; font-weight: 500;">⭐ Pro Activated</span>';
+  } else if (isFreeLimitReached()) {
     badge.innerHTML = '<span style="background: var(--amber-light); color: var(--amber); padding: 2px 8px; border-radius: 12px; font-weight: 500;">Free: 1/1 plans used</span>';
   } else {
     badge.innerHTML = '<span style="background: var(--green-light); color: var(--green); padding: 2px 8px; border-radius: 12px; font-weight: 500;">Free: ' + plans.length + '/' + FREE_LIMIT + ' plans used</span>';
@@ -731,8 +758,118 @@ function handleNewPlanClick() {
   }
 }
 
+// License System
+const LICENSE_SERVER = 'http://localhost:8765'; // Change to your server URL
+const LICENSE_KEY_STORAGE = 'ppt_license_key';
+const LICENSE_FINGERPRINT_STORAGE = 'ppt_browser_fingerprint';
+
+function getBrowserFingerprint() {
+  let fp = localStorage.getItem(LICENSE_FINGERPRINT_STORAGE);
+  if (!fp) {
+    const nav = navigator;
+    const screen = window.screen;
+    const raw = nav.userAgent + nav.language + screen.width + screen.height + 
+               screen.colorDepth + new Date().getTimezoneOffset() + 
+               nav.hardwareConcurrency + nav.deviceMemory;
+    fp = btoa(raw).slice(0, 32);
+    localStorage.setItem(LICENSE_FINGERPRINT_STORAGE, fp);
+  }
+  return fp;
+}
+
+function isProUser() {
+  const key = localStorage.getItem(LICENSE_KEY_STORAGE);
+  return key && key.startsWith('PPT-');
+}
+
+function showLicenseModal() {
+  const modal = document.getElementById('license-modal');
+  if (modal) modal.classList.add('active');
+}
+
+function closeLicenseModal() {
+  const modal = document.getElementById('license-modal');
+  if (modal) modal.classList.remove('active');
+}
+
+async function activateLicense() {
+  const keyInput = document.getElementById('license-key-input');
+  const statusDiv = document.getElementById('license-status');
+  const key = keyInput.value.trim().toUpperCase();
+  
+  if (!key) {
+    statusDiv.innerHTML = '<span style="color: var(--red);">Please enter your license key.</span>';
+    return;
+  }
+  
+  if (!key.startsWith('PPT-')) {
+    statusDiv.innerHTML = '<span style="color: var(--red);">Invalid key format. Keys look like: PPT-XXXX-XXXX-XXXX-XXXX</span>';
+    return;
+  }
+  
+  statusDiv.innerHTML = '<span style="color: var(--gray-500);">Activating...</span>';
+  
+  const fingerprint = getBrowserFingerprint();
+  
+  try {
+    const response = await fetch(LICENSE_SERVER + '/activate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ key, fingerprint })
+    });
+    
+    const data = await response.json();
+    
+    if (data.success) {
+      localStorage.setItem(LICENSE_KEY_STORAGE, key);
+      statusDiv.innerHTML = '<span style="color: var(--green);">' + data.message + ' Redirecting...</span>';
+      setTimeout(() => {
+        closeLicenseModal();
+        render();
+      }, 1500);
+    } else {
+      statusDiv.innerHTML = '<span style="color: var(--red);">' + data.message + '</span>';
+    }
+  } catch (err) {
+    statusDiv.innerHTML = '<span style="color: var(--red);">Cannot connect to license server. Make sure the license server is running.</span>';
+  }
+}
+
+async function validateLicense() {
+  const key = localStorage.getItem(LICENSE_KEY_STORAGE);
+  if (!key) return false;
+  
+  const fingerprint = getBrowserFingerprint();
+  
+  try {
+    const response = await fetch(LICENSE_SERVER + '/validate?key=' + encodeURIComponent(key) + '&fingerprint=' + encodeURIComponent(fingerprint));
+    const data = await response.json();
+    
+    if (!data.valid) {
+      localStorage.removeItem(LICENSE_KEY_STORAGE);
+      return false;
+    }
+    return true;
+  } catch (err) {
+    // If server is down, allow access if key exists (grace period)
+    return true;
+  }
+}
+
 // Init
-load();
+async function init() {
+  if (isProUser()) {
+    const valid = await validateLicense();
+    if (!valid) {
+      localStorage.removeItem(LICENSE_KEY_STORAGE);
+      showLicenseModal();
+      return;
+    }
+  }
+  load();
+}
+
+init();
 </script>
 
 </body>
