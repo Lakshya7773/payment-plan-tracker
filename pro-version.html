@@ -1,0 +1,742 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Payment Plan Tracker — Notion-Style</title>
+<style>
+:root {
+  --blue: #2563eb;
+  --blue-hover: #1d4ed8;
+  --blue-light: #dbeafe;
+  --green: #16a34a;
+  --green-light: #dcfce7;
+  --amber: #d97706;
+  --amber-light: #fef3c7;
+  --red: #dc2626;
+  --red-light: #fee2e2;
+  --gray-50: #f8fafc;
+  --gray-100: #f1f5f9;
+  --gray-200: #e2e8f0;
+  --gray-300: #cbd5e1;
+  --gray-400: #94a3b8;
+  --gray-500: #64748b;
+  --gray-600: #475569;
+  --gray-700: #334155;
+  --gray-800: #1e293b;
+  --gray-900: #0f172a;
+  --white: #ffffff;
+  --radius: 6px;
+  --shadow: 0 1px 3px rgba(0,0,0,0.1);
+}
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: var(--gray-50); color: var(--gray-900); }
+
+/* Layout */
+.container { max-width: 1200px; margin: 0 auto; padding: 0 20px; }
+.header { background: var(--white); border-bottom: 1px solid var(--gray-200); padding: 16px 0; margin-bottom: 24px; }
+.header-inner { display: flex; justify-content: space-between; align-items: center; }
+.logo { display: flex; align-items: center; gap: 8px; font-size: 18px; font-weight: 600; }
+.logo-icon { width: 28px; height: 28px; background: var(--blue); border-radius: 6px; display: flex; align-items: center; justify-content: center; color: white; font-size: 14px; }
+
+/* KPI Cards */
+.kpi-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 24px; }
+.kpi { background: var(--white); border: 1px solid var(--gray-200); border-radius: var(--radius); padding: 16px; }
+.kpi-label { font-size: 12px; color: var(--gray-500); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px; }
+.kpi-value { font-size: 28px; font-weight: 700; }
+.kpi-sub { font-size: 12px; color: var(--gray-400); margin-top: 4px; }
+
+/* Buttons */
+.btn { display: inline-flex; align-items: center; gap: 6px; padding: 8px 16px; border-radius: var(--radius); font-size: 14px; font-weight: 500; cursor: pointer; border: none; transition: all 0.15s; }
+.btn-primary { background: var(--blue); color: white; }
+.btn-primary:hover { background: var(--blue-hover); }
+.btn-success { background: var(--green); color: white; }
+.btn-success:hover { background: #15803d; }
+.btn-danger { background: var(--red); color: white; }
+.btn-danger:hover { background: #b91c1c; }
+.btn-outline { background: var(--white); border: 1px solid var(--gray-300); color: var(--gray-700); }
+.btn-outline:hover { background: var(--gray-100); }
+.btn-sm { padding: 4px 10px; font-size: 12px; }
+
+/* Table */
+.table-wrap { background: var(--white); border: 1px solid var(--gray-200); border-radius: var(--radius); overflow: hidden; margin-bottom: 24px; }
+.table-header { display: flex; justify-content: space-between; align-items: center; padding: 16px; border-bottom: 1px solid var(--gray-200); }
+.table-header h2 { font-size: 16px; font-weight: 600; }
+table { width: 100%; border-collapse: collapse; }
+th { text-align: left; padding: 8px 16px; font-size: 12px; font-weight: 600; color: var(--gray-500); text-transform: uppercase; letter-spacing: 0.5px; background: var(--gray-50); border-bottom: 1px solid var(--gray-200); }
+td { padding: 12px 16px; border-bottom: 1px solid var(--gray-100); font-size: 14px; vertical-align: middle; }
+tr:last-child td { border-bottom: none; }
+tr:hover td { background: var(--gray-50); }
+
+/* Status Badges */
+.badge { display: inline-flex; align-items: center; padding: 2px 8px; border-radius: 12px; font-size: 12px; font-weight: 500; }
+.badge-active { background: var(--green-light); color: var(--green); }
+.badge-pending { background: var(--amber-light); color: var(--amber); }
+.badge-complete { background: var(--blue-light); color: var(--blue); }
+.badge-onhold { background: var(--gray-200); color: var(--gray-600); }
+.badge-issue { background: var(--red-light); color: var(--red); }
+.badge-requested { background: var(--gray-100); color: var(--gray-500); }
+.badge-sent { background: #e0e7ff; color: #4338ca; }
+
+/* Progress Bar */
+.progress-bar { width: 100%; height: 6px; background: var(--gray-200); border-radius: 3px; overflow: hidden; }
+.progress-fill { height: 100%; background: var(--blue); border-radius: 3px; transition: width 0.3s; }
+
+/* Modal */
+.modal-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; z-index: 1000; display: none; }
+.modal-overlay.active { display: flex; }
+.modal { background: var(--white); border-radius: 12px; width: 90%; max-width: 600px; max-height: 90vh; overflow-y: auto; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.1); }
+.modal-header { display: flex; justify-content: space-between; align-items: center; padding: 20px 24px; border-bottom: 1px solid var(--gray-200); }
+.modal-header h3 { font-size: 18px; font-weight: 600; }
+.modal-close { background: none; border: none; font-size: 24px; cursor: pointer; color: var(--gray-400); }
+.modal-body { padding: 24px; }
+.modal-footer { display: flex; justify-content: flex-end; gap: 8px; padding: 16px 24px; border-top: 1px solid var(--gray-200); }
+
+/* Form */
+.form-group { margin-bottom: 16px; }
+.form-group label { display: block; font-size: 13px; font-weight: 500; color: var(--gray-700); margin-bottom: 4px; }
+.form-group input, .form-group select { width: 100%; padding: 8px 12px; border: 1px solid var(--gray-300); border-radius: var(--radius); font-size: 14px; }
+.form-group input:focus, .form-group select:focus { outline: none; border-color: var(--blue); box-shadow: 0 0 0 3px var(--blue-light); }
+.form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+
+/* Payment Schedule */
+.schedule-table { width: 100%; border-collapse: collapse; margin-top: 16px; }
+.schedule-table th { background: var(--gray-50); }
+.schedule-table td, .schedule-table th { padding: 8px 12px; font-size: 13px; }
+.paid { color: var(--green); font-weight: 500; }
+.upcoming { color: var(--amber); }
+.overdue { color: var(--red); font-weight: 500; }
+
+/* Filter tabs */
+.tabs { display: flex; gap: 4px; margin-bottom: 16px; }
+.tab { padding: 6px 12px; border-radius: var(--radius); font-size: 13px; font-weight: 500; cursor: pointer; border: none; background: none; color: var(--gray-500); }
+.tab.active { background: var(--gray-100); color: var(--gray-900); }
+.tab:hover { background: var(--gray-100); }
+
+/* Responsive */
+@media (max-width: 768px) {
+  .kpi-row { grid-template-columns: repeat(2, 1fr); }
+  .form-row { grid-template-columns: 1fr; }
+  .table-wrap { overflow-x: auto; }
+  table { min-width: 800px; }
+}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="container header-inner">
+    <div class="logo">
+      <div class="logo-icon">$</div>
+      Payment Plan Tracker <span style="background: var(--blue-light); color: var(--blue); padding: 2px 8px; border-radius: 12px; font-size: 12px; font-weight: 500;">PRO</span>
+    </div>
+    <div style="display: flex; align-items: center; gap: 12px;">
+      <span id="plan-limit-badge" style="display: none;"></span>
+      <button class="btn btn-primary" onclick="handleNewPlanClick()">+ New Payment Plan</button>
+    </div>
+  </div>
+</div>
+
+<div class="container">
+  <!-- KPI Cards -->
+  <div class="kpi-row">
+    <div class="kpi">
+      <div class="kpi-label">Active Plans</div>
+      <div class="kpi-value" id="kpi-active">0</div>
+      <div class="kpi-sub" id="kpi-active-sub">0 customers</div>
+    </div>
+    <div class="kpi">
+      <div class="kpi-label">Total Outstanding</div>
+      <div class="kpi-value" id="kpi-outstanding">$0</div>
+      <div class="kpi-sub" id="kpi-outstanding-sub">0 payments remaining</div>
+    </div>
+    <div class="kpi">
+      <div class="kpi-label">Collected This Month</div>
+      <div class="kpi-value" id="kpi-collected">$0</div>
+      <div class="kpi-sub" id="kpi-collected-sub">0 payments</div>
+    </div>
+    <div class="kpi">
+      <div class="kpi-label">Overdue</div>
+      <div class="kpi-value" id="kpi-overdue" style="color: var(--red);">0</div>
+      <div class="kpi-sub" id="kpi-overdue-sub">needs attention</div>
+    </div>
+  </div>
+
+  <!-- Filter Tabs -->
+  <div class="tabs">
+    <button class="tab active" onclick="filterPlans('all')">All Plans</button>
+    <button class="tab" onclick="filterPlans('active')">Active</button>
+    <button class="tab" onclick="filterPlans('pending')">Pending</button>
+    <button class="tab" onclick="filterPlans('complete')">Complete</button>
+    <button class="tab" onclick="filterPlans('onhold')">On Hold</button>
+    <button class="tab" onclick="filterPlans('issue')">Issues</button>
+  </div>
+
+  <!-- Plans Table -->
+  <div class="table-wrap">
+    <div class="table-header">
+      <h2>Payment Plans</h2>
+      <span id="plan-count" style="font-size: 13px; color: var(--gray-500);">0 plans</span>
+    </div>
+    <table>
+      <thead>
+        <tr>
+          <th>Customer</th>
+          <th>Total</th>
+          <th>Installment</th>
+          <th>Frequency</th>
+          <th>Progress</th>
+          <th>Next Payment</th>
+          <th>Remaining</th>
+          <th>Status</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody id="plans-body">
+      </tbody>
+    </table>
+  </div>
+
+  <!-- Payment Schedule (shown when a plan is selected) -->
+  <div class="table-wrap" id="schedule-wrap" style="display: none;">
+    <div class="table-header">
+      <h2 id="schedule-title">Payment Schedule</h2>
+      <button class="btn btn-outline btn-sm" onclick="closeSchedule()">Close</button>
+    </div>
+    <div style="padding: 16px;">
+      <table class="schedule-table">
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Due Date</th>
+            <th>Amount</th>
+            <th>Status</th>
+            <th>Paid Date</th>
+            <th>Action</th>
+          </tr>
+        </thead>
+        <tbody id="schedule-body">
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- Upgrade Modal -->
+<div class="modal-overlay" id="upgrade-modal">
+  <div class="modal" style="max-width: 480px;">
+    <div class="modal-header">
+      <h3>🚀 Upgrade to Pro</h3>
+      <button class="modal-close" onclick="closeUpgradeModal()">&times;</button>
+    </div>
+    <div class="modal-body" style="text-align: center; padding: 32px 24px;">
+      <div style="font-size: 48px; margin-bottom: 16px;">💳</div>
+      <h3 style="font-size: 20px; margin-bottom: 8px;">You've reached the free plan limit</h3>
+      <p style="color: var(--gray-500); margin-bottom: 24px; font-size: 14px;">
+        Free plan includes <strong>1 payment plan</strong>. Upgrade to Pro for unlimited plans and premium features.
+      </p>
+      <div style="text-align: left; background: var(--gray-50); border-radius: var(--radius); padding: 16px; margin-bottom: 24px;">
+        <div style="font-weight: 600; margin-bottom: 12px; font-size: 14px;">Pro includes:</div>
+        <div style="font-size: 13px; color: var(--gray-600); line-height: 2;">
+          ✅ Unlimited payment plans<br>
+          ✅ Edit & delete plans<br>
+          ✅ Export to CSV<br>
+          ✅ Email reminders for due dates<br>
+          ✅ Dashboard analytics<br>
+          ✅ Priority support
+        </div>
+      </div>
+      <a href="https://gumroad.com/l/payment-plan-tracker" target="_blank" class="btn btn-primary" style="width: 100%; justify-content: center; padding: 12px; text-decoration: none;">
+        Upgrade for $49 →
+      </a>
+      <p style="font-size: 12px; color: var(--gray-400); margin-top: 8px;">
+        One-time payment • Unlimited plans • Instant download • Free updates
+      </p>
+      <p style="font-size: 12px; color: var(--gray-400); margin-top: 12px;">
+        One-time payment • No subscription • Instant access
+      </p>
+    </div>
+  </div>
+</div>
+
+<!-- New Plan Modal -->
+<div class="modal-overlay" id="modal">
+  <div class="modal">
+    <div class="modal-header">
+      <h3>New Payment Plan</h3>
+      <button class="modal-close" onclick="closeModal()">&times;</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-group">
+        <label>Customer Name *</label>
+        <input type="text" id="f-customer" placeholder="e.g. Acme Corp">
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Total Amount *</label>
+          <input type="number" id="f-total" placeholder="12000" min="0" step="0.01">
+        </div>
+        <div class="form-group">
+          <label>Currency</label>
+          <select id="f-currency">
+            <option value="$">$ (USD)</option>
+            <option value="€">€ (EUR)</option>
+            <option value="£">£ (GBP)</option>
+            <option value="₹">₹ (INR)</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Frequency *</label>
+          <select id="f-frequency">
+            <option value="weekly">Weekly</option>
+            <option value="biweekly">Bi-weekly</option>
+            <option value="monthly" selected>Monthly</option>
+            <option value="quarterly">Quarterly</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Number of Payments *</label>
+          <input type="number" id="f-count" placeholder="12" min="1" max="120">
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Start Date *</label>
+          <input type="date" id="f-start">
+        </div>
+        <div class="form-group">
+          <label>Status</label>
+          <select id="f-status">
+            <option value="requested">Requested</option>
+            <option value="sent">Sent for Signature</option>
+            <option value="active" selected>Active / In Progress</option>
+            <option value="complete">Complete</option>
+            <option value="onhold">On Hold</option>
+            <option value="issue">Issue</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-group">
+        <label>Notes</label>
+        <input type="text" id="f-notes" placeholder="Optional notes about this plan">
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-outline" onclick="closeModal()">Cancel</button>
+      <button class="btn btn-primary" onclick="savePlan()">Create Plan</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// Data
+let plans = [];
+let currentFilter = 'all';
+let selectedPlanId = null;
+
+// Load from localStorage
+function load() {
+  const saved = localStorage.getItem('paymentPlans');
+  if (saved) {
+    plans = JSON.parse(saved);
+  } else {
+    // Start empty — no demo data
+    plans = [];
+    save();
+  }
+}
+
+const FREE_LIMIT = 99999; // Pro version — unlimited plans
+const UPGRADE_URL = 'https://gumroad.com/l/payment-plan-tracker';
+
+function save() {
+  localStorage.setItem('paymentPlans', JSON.stringify(plans));
+  render();
+}
+
+function isFreeLimitReached() {
+  return plans.length >= FREE_LIMIT;
+}
+
+function showUpgradeModal() {
+  document.getElementById('upgrade-modal').classList.add('active');
+}
+
+function closeUpgradeModal() {
+  document.getElementById('upgrade-modal').classList.remove('active');
+}
+
+function generateSchedule(total, frequency, count, startDate) {
+  const payments = [];
+  const installment = Math.round((total / count) * 100) / 100;
+  const start = new Date(startDate);
+  
+  for (let i = 0; i < count; i++) {
+    const dueDate = new Date(start);
+    if (frequency === 'weekly') {
+      dueDate.setDate(dueDate.getDate() + (i * 7));
+    } else if (frequency === 'biweekly') {
+      dueDate.setDate(dueDate.getDate() + (i * 14));
+    } else if (frequency === 'monthly') {
+      dueDate.setMonth(dueDate.getMonth() + i);
+    } else if (frequency === 'quarterly') {
+      dueDate.setMonth(dueDate.getMonth() + (i * 3));
+    }
+    
+    payments.push({
+      number: i + 1,
+      dueDate: dueDate.toISOString().split('T')[0],
+      amount: installment,
+      status: 'upcoming', // upcoming, paid, overdue
+      paidDate: null
+    });
+  }
+  
+  // Mark past due as overdue
+  const today = new Date().toISOString().split('T')[0];
+  payments.forEach(p => {
+    if (p.status === 'upcoming' && p.dueDate < today) {
+      p.status = 'overdue';
+    }
+  });
+  
+  return payments;
+}
+
+function formatDate(dateStr) {
+  const d = new Date(dateStr);
+  return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+}
+
+function formatCurrency(amount, currency) {
+  return currency + amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
+function getStatusBadge(status) {
+  const map = {
+    active: '<span class="badge badge-active">Active</span>',
+    pending: '<span class="badge badge-pending">Pending</span>',
+    complete: '<span class="badge badge-complete">Complete</span>',
+    onhold: '<span class="badge badge-onhold">On Hold</span>',
+    issue: '<span class="badge badge-issue">Issue</span>',
+    requested: '<span class="badge badge-requested">Requested</span>',
+    sent: '<span class="badge badge-sent">Sent for Signature</span>'
+  };
+  return map[status] || status;
+}
+
+function getProgress(plan) {
+  const paid = plan.payments.filter(p => p.status === 'paid').length;
+  const total = plan.payments.length;
+  const pct = total > 0 ? Math.round((paid / total) * 100) : 0;
+  return { paid, total, pct };
+}
+
+function getNextPayment(plan) {
+  const upcoming = plan.payments.find(p => p.status === 'upcoming' || p.status === 'overdue');
+  return upcoming || null;
+}
+
+function getRemaining(plan) {
+  return plan.payments
+    .filter(p => p.status !== 'paid')
+    .reduce((sum, p) => sum + p.amount, 0);
+}
+
+function render() {
+  renderKPIs();
+  renderTable();
+  renderPlanLimitBadge();
+  if (selectedPlanId) {
+    renderSchedule(selectedPlanId);
+  }
+}
+
+function renderPlanLimitBadge() {
+  const badge = document.getElementById('plan-limit-badge');
+  if (isFreeLimitReached()) {
+    badge.innerHTML = '<span style="background: var(--amber-light); color: var(--amber); padding: 2px 8px; border-radius: 12px; font-weight: 500;">Free: 1/1 plans used</span>';
+  } else {
+    badge.innerHTML = '<span style="background: var(--green-light); color: var(--green); padding: 2px 8px; border-radius: 12px; font-weight: 500;">Free: ' + plans.length + '/' + FREE_LIMIT + ' plans used</span>';
+  }
+}
+
+function renderKPIs() {
+  const active = plans.filter(p => p.status === 'active');
+  let totalOutstanding = 0;
+  let totalRemainingPayments = 0;
+  let collectedThisMonth = 0;
+  let collectedCount = 0;
+  let overdueCount = 0;
+  
+  const thisMonth = new Date().toISOString().slice(0, 7);
+  
+  plans.forEach(p => {
+    if (p.status === 'active') {
+      const remaining = getRemaining(p);
+      totalOutstanding += remaining;
+      totalRemainingPayments += p.payments.filter(pay => pay.status !== 'paid').length;
+      
+      p.payments.forEach(pay => {
+        if (pay.status === 'paid' && pay.paidDate && pay.paidDate.startsWith(thisMonth)) {
+          collectedThisMonth += pay.amount;
+          collectedCount++;
+        }
+        if (pay.status === 'overdue') {
+          overdueCount++;
+        }
+      });
+    }
+  });
+  
+  document.getElementById('kpi-active').textContent = active.length;
+  document.getElementById('kpi-active-sub').textContent = active.length + ' customer' + (active.length !== 1 ? 's' : '');
+  
+  const currency = plans[0]?.currency || '$';
+  document.getElementById('kpi-outstanding').textContent = currency + totalOutstanding.toLocaleString();
+  document.getElementById('kpi-outstanding-sub').textContent = totalRemainingPayments + ' payment' + (totalRemainingPayments !== 1 ? 's' : '') + ' remaining';
+  
+  document.getElementById('kpi-collected').textContent = currency + collectedThisMonth.toLocaleString();
+  document.getElementById('kpi-collected-sub').textContent = collectedCount + ' payment' + (collectedCount !== 1 ? 's' : '') + ' collected';
+  
+  document.getElementById('kpi-overdue').textContent = overdueCount;
+  document.getElementById('kpi-overdue-sub').textContent = overdueCount > 0 ? 'needs attention' : 'all clear';
+}
+
+function renderTable() {
+  const tbody = document.getElementById('plans-body');
+  let filtered = plans;
+  
+  if (currentFilter !== 'all') {
+    if (currentFilter === 'pending') {
+      filtered = plans.filter(p => p.status === 'requested' || p.status === 'sent');
+    } else {
+      filtered = plans.filter(p => p.status === currentFilter);
+    }
+  }
+  
+  document.getElementById('plan-count').textContent = filtered.length + ' plan' + (filtered.length !== 1 ? 's' : '');
+  
+  if (filtered.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="9" style="text-align: center; padding: 40px; color: var(--gray-400);">No payment plans found. Click "+ New Payment Plan" to create one.</td></tr>';
+    return;
+  }
+  
+  const currency = plans[0]?.currency || '$';
+  
+  tbody.innerHTML = filtered.map(plan => {
+    const progress = getProgress(plan);
+    const next = getNextPayment(plan);
+    const remaining = getRemaining(plan);
+    const installment = plan.payments.length > 0 ? plan.payments[0].amount : 0;
+    
+    let nextDisplay = '—';
+    if (next) {
+      const nextDate = formatDate(next.dueDate);
+      if (next.status === 'overdue') {
+        nextDisplay = '<span style="color: var(--red); font-weight: 500;">' + nextDate + ' (overdue)</span>';
+      } else {
+        nextDisplay = nextDate;
+      }
+    }
+    
+    return '<tr>' +
+      '<td><strong>' + esc(plan.customer) + '</strong>' + (plan.notes ? '<br><span style="font-size: 12px; color: var(--gray-400);">' + esc(plan.notes) + '</span>' : '') + '</td>' +
+      '<td>' + formatCurrency(plan.total, plan.currency) + '</td>' +
+      '<td>' + formatCurrency(installment, plan.currency) + '</td>' +
+      '<td>' + plan.frequency.charAt(0).toUpperCase() + plan.frequency.slice(1) + '</td>' +
+      '<td>' +
+        '<div style="display: flex; align-items: center; gap: 8px;">' +
+          '<div class="progress-bar" style="width: 80px;"><div class="progress-fill" style="width: ' + progress.pct + '%;"></div></div>' +
+          '<span style="font-size: 12px; color: var(--gray-500);">' + progress.paid + '/' + progress.total + ' (' + progress.pct + '%)</span>' +
+        '</div>' +
+      '</td>' +
+      '<td>' + nextDisplay + '</td>' +
+      '<td>' + formatCurrency(remaining, plan.currency) + '</td>' +
+      '<td>' + getStatusBadge(plan.status) + '</td>' +
+      '<td>' +
+        '<button class="btn btn-outline btn-sm" onclick="viewSchedule(\'' + plan.id + '\')">Schedule</button> ' +
+        (next ? '<button class="btn btn-success btn-sm" onclick="markPaid(\'' + plan.id + '\', ' + next.number + ')">Mark Paid</button> ' : '') +
+        '<button class="btn btn-outline btn-sm" onclick="editPlan(\'' + plan.id + '\')">Edit</button>' +
+      '</td>' +
+    '</tr>';
+  }).join('');
+}
+
+function renderSchedule(planId) {
+  const plan = plans.find(p => p.id === planId);
+  if (!plan) return;
+  
+  document.getElementById('schedule-wrap').style.display = 'block';
+  document.getElementById('schedule-title').textContent = 'Payment Schedule — ' + plan.customer;
+  
+  const tbody = document.getElementById('schedule-body');
+  tbody.innerHTML = plan.payments.map(p => {
+    let statusDisplay = '';
+    let actionButton = '';
+    
+    if (p.status === 'paid') {
+      statusDisplay = '<span class="paid">✓ Paid</span>';
+      actionButton = '<span style="font-size: 12px; color: var(--gray-400);">' + (p.paidDate ? formatDate(p.paidDate) : '') + '</span>';
+    } else if (p.status === 'overdue') {
+      statusDisplay = '<span class="overdue">⚠ Overdue</span>';
+      actionButton = '<button class="btn btn-success btn-sm" onclick="markPaid(\'' + plan.id + '\', ' + p.number + ')">Mark Paid</button>';
+    } else {
+      statusDisplay = '<span class="upcoming">Upcoming</span>';
+      actionButton = '<button class="btn btn-success btn-sm" onclick="markPaid(\'' + plan.id + '\', ' + p.number + ')">Mark Paid</button>';
+    }
+    
+    return '<tr>' +
+      '<td>' + p.number + '</td>' +
+      '<td>' + formatDate(p.dueDate) + '</td>' +
+      '<td>' + formatCurrency(p.amount, plan.currency) + '</td>' +
+      '<td>' + statusDisplay + '</td>' +
+      '<td>' + (p.paidDate ? formatDate(p.paidDate) : '—') + '</td>' +
+      '<td>' + actionButton + '</td>' +
+    '</tr>';
+  }).join('');
+  
+  document.getElementById('schedule-wrap').scrollIntoView({ behavior: 'smooth' });
+}
+
+function closeSchedule() {
+  document.getElementById('schedule-wrap').style.display = 'none';
+  selectedPlanId = null;
+}
+
+function viewSchedule(planId) {
+  selectedPlanId = planId;
+  renderSchedule(planId);
+}
+
+function filterPlans(filter) {
+  currentFilter = filter;
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  event.target.classList.add('active');
+  renderTable();
+}
+
+function markPaid(planId, paymentNumber) {
+  const plan = plans.find(p => p.id === planId);
+  if (!plan) return;
+  
+  const payment = plan.payments.find(p => p.number === paymentNumber);
+  if (!payment) return;
+  
+  payment.status = 'paid';
+  payment.paidDate = new Date().toISOString().split('T')[0];
+  
+  // Check if all payments are complete
+  const allPaid = plan.payments.every(p => p.status === 'paid');
+  if (allPaid) {
+    plan.status = 'complete';
+  }
+  
+  save();
+}
+
+function openModal() {
+  document.getElementById('modal').classList.add('active');
+  document.getElementById('f-start').valueAsDate = new Date();
+}
+
+function closeModal() {
+  document.getElementById('modal').classList.remove('active');
+  // Clear form
+  document.getElementById('f-customer').value = '';
+  document.getElementById('f-total').value = '';
+  document.getElementById('f-count').value = '';
+  document.getElementById('f-notes').value = '';
+}
+
+function savePlan() {
+  const customer = document.getElementById('f-customer').value.trim();
+  const total = parseFloat(document.getElementById('f-total').value);
+  const currency = document.getElementById('f-currency').value;
+  const frequency = document.getElementById('f-frequency').value;
+  const numPayments = parseInt(document.getElementById('f-count').value);
+  const startDate = document.getElementById('f-start').value;
+  const status = document.getElementById('f-status').value;
+  const notes = document.getElementById('f-notes').value.trim();
+  
+  if (!customer || !total || !numPayments || !startDate) {
+    alert('Please fill in all required fields (Customer, Total Amount, Number of Payments, Start Date).');
+    return;
+  }
+  
+  const plan = {
+    id: 'plan_' + Date.now(),
+    customer,
+    total,
+    currency,
+    frequency,
+    numPayments,
+    startDate,
+    status,
+    notes,
+    payments: generateSchedule(total, frequency, numPayments, startDate)
+  };
+  
+  plans.push(plan);
+  save();
+  closeModal();
+}
+
+function editPlan(planId) {
+  const plan = plans.find(p => p.id === planId);
+  if (!plan) return;
+  
+  document.getElementById('f-customer').value = plan.customer;
+  document.getElementById('f-total').value = plan.total;
+  document.getElementById('f-currency').value = plan.currency;
+  document.getElementById('f-frequency').value = plan.frequency;
+  document.getElementById('f-count').value = plan.numPayments;
+  document.getElementById('f-start').value = plan.startDate;
+  document.getElementById('f-status').value = plan.status;
+  document.getElementById('f-notes').value = plan.notes || '';
+  
+  openModal();
+  
+  // Change save button to update
+  const saveBtn = document.querySelector('#modal .btn-primary');
+  saveBtn.textContent = 'Update Plan';
+  saveBtn.onclick = function() {
+    plan.customer = document.getElementById('f-customer').value.trim();
+    plan.total = parseFloat(document.getElementById('f-total').value);
+    plan.currency = document.getElementById('f-currency').value;
+    plan.frequency = document.getElementById('f-frequency').value;
+    plan.numPayments = parseInt(document.getElementById('f-count').value);
+    plan.startDate = document.getElementById('f-start').value;
+    plan.status = document.getElementById('f-status').value;
+    plan.notes = document.getElementById('f-notes').value.trim();
+    plan.payments = generateSchedule(plan.total, plan.frequency, plan.numPayments, plan.startDate);
+    
+    save();
+    closeModal();
+    saveBtn.textContent = 'Create Plan';
+    saveBtn.onclick = savePlan;
+  };
+}
+
+function esc(str) {
+  const div = document.createElement('div');
+  div.textContent = str;
+  return div.innerHTML;
+}
+
+function handleNewPlanClick() {
+  if (isFreeLimitReached()) {
+    showUpgradeModal();
+  } else {
+    openModal();
+  }
+}
+
+// Init
+load();
+</script>
+
+</body>
+</html>
